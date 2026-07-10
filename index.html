@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>差旅请假记录</title>
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
     <style>
         /* ===== 基础重置与变量 ===== */
         * {
@@ -1287,6 +1288,13 @@
             color: white;
         }
 
+        .btn-tertiary {
+            background: rgba(17, 24, 39, 0.06);
+            color: var(--text-secondary);
+            font-size: 13px;
+            padding: 8px 14px;
+        }
+
         /* Action Sheet */
         .action-list {
             display: flex;
@@ -2019,6 +2027,26 @@
                 <button class="modal-close" onclick="app.hideModal('syncModal')">×</button>
             </div>
             <div class="modal-body">
+                <div class="section-title-sm">🔐 密码云端同步（推荐）</div>
+                <p class="sync-text">用密码把全部记录加密后存到 GitHub Gist 云端，换设备时输入<strong>同一密码 + 同步码</strong>即可拉取恢复。数据以密文存储，云端无法读取内容。</p>
+                <div class="form-row">
+                    <input type="password" id="cloudPwd" class="form-input" placeholder="设置/输入同步密码" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <input type="text" id="cloudGistId" class="form-input" placeholder="同步码（首次留空=自动新建）" autocomplete="off">
+                </div>
+                <div class="modal-footer" style="padding:0 0 8px 0;">
+                    <button class="btn btn-primary" onclick="app.cloudBackup()">☁️ 备份到云端</button>
+                    <button class="btn btn-secondary" onclick="app.cloudRestore()">⬇️ 从云端恢复</button>
+                </div>
+                <div class="sync-area" id="cloudSyncInfo" style="font-size:12px;color:var(--text-secondary);min-height:20px;">尚未备份</div>
+                <div class="form-row" style="margin-top:8px;">
+                    <input type="password" id="cloudToken" class="form-input" placeholder="GitHub Token（需 gist 权限，仅本地保存）" autocomplete="off">
+                    <button class="btn btn-tertiary" style="margin-top:6px;width:100%;" onclick="app.saveCloudToken()">保存 Token</button>
+                </div>
+                <p class="sync-text" style="font-size:11px;opacity:.8;">Token 仅存于本机浏览器，不上传。建议新建一个仅勾选 <code>gist</code> 权限的细粒度令牌。</p>
+
+                <div class="divider"></div>
                 <div class="section-title-sm">通过链接同步</div>
                 <p class="sync-text">点击下方按钮生成同步链接，将链接发送给另一台手机或平板，打开后自动同步所有记录。链接已包含全部数据。</p>
                 <div class="sync-area" id="syncLinkArea" onclick="this.select()" ontouchstart="this.select()">点击生成后显示同步链接</div>
@@ -2081,6 +2109,7 @@
                 this.applyRoute();
                 this.setupNavState();
                 this.setupLongPress();
+                this.refreshCloudInfo();
             },
 
             applyRoute() {
@@ -3002,6 +3031,11 @@
                 document.getElementById('syncLinkArea').textContent = '点击生成后显示同步链接';
                 document.getElementById('copySyncBtn').disabled = true;
                 this.data.currentSyncLink = '';
+                const savedId = localStorage.getItem(this.CLOUD_ID_KEY());
+                if (savedId) document.getElementById('cloudGistId').value = savedId;
+                const savedToken = this.getCloudToken();
+                if (savedToken) document.getElementById('cloudToken').value = savedToken;
+                this.refreshCloudInfo();
                 this.showModal('syncModal');
             },
 
@@ -3123,6 +3157,125 @@
             sharePageLink() {
                 const link = this.buildLink();
                 this.copyText(link, '当前页链接已复制');
+            },
+
+            // ===== 密码云端同步（GitHub Gist + AES 加密）=====
+            CLOUD_KEY() { return 'tl_cloud_token'; },
+            CLOUD_ID_KEY() { return 'tl_cloud_gist_id'; },
+            CLOUD_PWD_HINT() { return 'tl_cloud_pwd_hint'; },
+
+            getCloudToken() {
+                return localStorage.getItem(this.CLOUD_KEY()) || '';
+            },
+            saveCloudToken() {
+                const v = document.getElementById('cloudToken').value.trim();
+                if (!v) { this.showToast('请输入 Token'); return; }
+                localStorage.setItem(this.CLOUD_KEY(), v);
+                this.showToast('Token 已本地保存');
+                this.refreshCloudInfo();
+            },
+            refreshCloudInfo() {
+                const id = localStorage.getItem(this.CLOUD_ID_KEY());
+                const token = this.getCloudToken();
+                const info = document.getElementById('cloudSyncInfo');
+                if (!info) return;
+                if (id) {
+                    let txt = '同步码：' + id;
+                    if (token) txt += ' ｜ Token 已就绪';
+                    info.textContent = txt;
+                } else {
+                    info.textContent = token ? '已保存 Token，可首次备份' : '尚未配置 Token';
+                }
+            },
+
+            // AES 加密：密码派生密钥，输出 {c, iv, salt} 的 Base64 组合
+            encryptData(pwd, obj) {
+                const salt = CryptoJS.lib.WordArray.random(128 / 8);
+                const key = CryptoJS.PBKDF2(pwd, salt, { keySize: 256 / 32, iterations: 1000 });
+                const iv = CryptoJS.lib.WordArray.random(128 / 8);
+                const json = JSON.stringify(obj);
+                const encrypted = CryptoJS.AES.encrypt(json, key, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+                return salt.toString(CryptoJS.enc.Base64) + '|' + iv.toString(CryptoJS.enc.Base64) + '|' + encrypted.toString();
+            },
+            decryptData(pwd, payload) {
+                const parts = (payload || '').split('|');
+                if (parts.length !== 3) throw new Error('密文格式不正确');
+                const salt = CryptoJS.enc.Base64.parse(parts[0]);
+                const iv = CryptoJS.enc.Base64.parse(parts[1]);
+                const key = CryptoJS.PBKDF2(pwd, salt, { keySize: 256 / 32, iterations: 1000 });
+                const decrypted = CryptoJS.AES.decrypt(parts[2], key, { iv: iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 });
+                const text = decrypted.toString(CryptoJS.enc.Utf8);
+                if (!text) throw new Error('密码错误或数据损坏');
+                return JSON.parse(text);
+            },
+
+            async cloudBackup() {
+                const pwd = document.getElementById('cloudPwd').value;
+                const token = this.getCloudToken();
+                if (!pwd) { this.showToast('请输入同步密码'); return; }
+                if (!token) { this.showToast('请先保存 GitHub Token'); return; }
+                const gistId = document.getElementById('cloudGistId').value.trim() || localStorage.getItem(this.CLOUD_ID_KEY()) || '';
+                const ciphertext = this.encryptData(pwd, this.data.records);
+                const body = {
+                    description: 'TL-Backup (encrypted)',
+                    public: false,
+                    files: { 'tl-backup.txt': { content: ciphertext } }
+                };
+                try {
+                    let url = 'https://api.github.com/gists';
+                    let method = 'POST';
+                    if (gistId) { url = 'https://api.github.com/gists/' + gistId; method = 'PATCH'; }
+                    const res = await fetch(url, {
+                        method: method,
+                        headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    const newId = data.id;
+                    localStorage.setItem(this.CLOUD_ID_KEY(), newId);
+                    document.getElementById('cloudGistId').value = newId;
+                    this.refreshCloudInfo();
+                    this.showToast('☁️ 已备份到云端');
+                } catch (e) {
+                    this.showToast('备份失败：' + e.message);
+                }
+            },
+
+            async cloudRestore() {
+                const pwd = document.getElementById('cloudPwd').value;
+                const token = this.getCloudToken();
+                let gistId = document.getElementById('cloudGistId').value.trim() || localStorage.getItem(this.CLOUD_ID_KEY()) || '';
+                if (!pwd) { this.showToast('请输入同步密码'); return; }
+                if (!gistId) { this.showToast('请输入同步码'); return; }
+                try {
+                    const res = await fetch('https://api.github.com/gists/' + gistId, {
+                        headers: token ? { 'Authorization': 'token ' + token } : {}
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const data = await res.json();
+                    const file = data.files && data.files['tl-backup.txt'];
+                    if (!file || !file.content) throw new Error('云端无备份文件');
+                    const records = this.decryptData(pwd, file.content);
+                    this.data.records = this.normalizeAll(records);
+                    this.saveToStorage();
+                    localStorage.setItem(this.CLOUD_ID_KEY(), gistId);
+                    document.getElementById('cloudGistId').value = gistId;
+                    this.refreshCloudInfo();
+                    this.renderHome();
+                    if (this.data.currentMonth !== null && this.data.currentMonth !== undefined) this.showMonth(this.data.currentYear, this.data.currentMonth);
+                    this.hideModal('syncModal');
+                    this.showToast('⬇️ 已从云端恢复');
+                } catch (e) {
+                    this.showToast('恢复失败：' + e.message);
+                }
+            },
+
+            normalizeAll(records) {
+                const out = { travel: [], leave: [] };
+                if (records && Array.isArray(records.travel)) out.travel = records.travel;
+                if (records && Array.isArray(records.leave)) out.leave = records.leave;
+                return out;
             },
 
             exportData() {
