@@ -2021,7 +2021,7 @@
             <div class="modal-body">
                 <div class="section-title-sm">通过链接同步</div>
                 <p class="sync-text">点击下方按钮生成同步链接，将链接发送给另一台手机或平板，打开后自动同步所有记录。链接已包含全部数据。</p>
-                <div class="sync-area" id="syncLinkArea">点击生成后显示同步链接</div>
+                <div class="sync-area" id="syncLinkArea" onclick="this.select()" ontouchstart="this.select()">点击生成后显示同步链接</div>
                 <div class="modal-footer" style="padding:0 0 8px 0;">
                     <button class="btn btn-primary" onclick="app.generateSyncLink()">生成同步链接</button>
                     <button class="btn btn-secondary" id="copySyncBtn" onclick="app.copySyncLink()" disabled>复制链接</button>
@@ -3019,21 +3019,92 @@
                 }
             },
 
+            // 统一复制文本：优先同步 execCommand（最可靠、即时反馈），失败再尝试 clipboard API，最终手动兜底
+            copyText(text, successMsg) {
+                if (!text) return;
+                const manual = () => this.manualCopyHint(text);
+                const byExec = () => {
+                    try {
+                        const input = document.createElement('textarea');
+                        input.value = text;
+                        input.setAttribute('readonly', '');
+                        input.style.position = 'fixed';
+                        input.style.top = '-9999px';
+                        input.style.opacity = '0';
+                        document.body.appendChild(input);
+                        input.focus();
+                        input.select();
+                        input.setSelectionRange(0, text.length);
+                        const ok = document.execCommand('copy');
+                        document.body.removeChild(input);
+                        if (ok) {
+                            this.showToast(successMsg || '已复制');
+                            return true;
+                        }
+                    } catch (err) { /* ignore */ }
+                    return false;
+                };
+                // 1) 先同步尝试 execCommand（兼容性最好，移动端/桌面均可）
+                if (byExec()) return;
+                // 2) 再尝试 clipboard API（带超时兜底，避免 promise 卡死无反馈）
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    let settled = false;
+                    const timer = setTimeout(() => {
+                        if (!settled) { settled = true; if (!byExec()) manual(); }
+                    }, 700);
+                    try {
+                        const p = navigator.clipboard.writeText(text);
+                        if (p && p.then) {
+                            p.then(() => {
+                                if (settled) return;
+                                settled = true; clearTimeout(timer);
+                                this.showToast(successMsg || '已复制');
+                            }).catch(() => {
+                                if (settled) return;
+                                settled = true; clearTimeout(timer);
+                                if (!byExec()) manual();
+                            });
+                            return;
+                        }
+                    } catch (e) { /* 落到下方 */ }
+                    clearTimeout(timer);
+                }
+                // 3) 终极兜底：弹出可手动选择的文本层
+                manual();
+            },
+
+            // 终极兜底：复制 API 与 execCommand 都不可用时，弹出可手动长按选择的文本层
+            manualCopyHint(text) {
+                let layer = document.getElementById('copyFallbackLayer');
+                if (!layer) {
+                    layer = document.createElement('div');
+                    layer.id = 'copyFallbackLayer';
+                    layer.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(17,24,39,.55);backdrop-filter:blur(8px);padding:24px;';
+                    layer.onclick = (e) => { if (e.target === layer) layer.remove(); };
+                    document.body.appendChild(layer);
+                }
+                layer.innerHTML = '';
+                const box = document.createElement('div');
+                box.style.cssText = 'background:#fff;border-radius:16px;padding:20px;max-width:90vw;box-shadow:0 20px 50px rgba(0,0,0,.3);';
+                const tip = document.createElement('div');
+                tip.style.cssText = 'font-size:14px;color:#374151;margin-bottom:10px;';
+                tip.textContent = '请长按下方文本手动复制：';
+                const area = document.createElement('textarea');
+                area.value = text;
+                area.readOnly = true;
+                area.style.cssText = 'width:100%;height:120px;font-size:13px;border:1px solid #e5e7eb;border-radius:10px;padding:10px;resize:none;';
+                const close = document.createElement('button');
+                close.textContent = '关闭';
+                close.style.cssText = 'margin-top:12px;width:100%;padding:10px;border:none;border-radius:10px;background:#111827;color:#fff;font-size:14px;';
+                close.onclick = () => layer.remove();
+                box.appendChild(tip); box.appendChild(area); box.appendChild(close);
+                layer.appendChild(box);
+                setTimeout(() => { area.focus(); area.select(); }, 50);
+            },
+
             copySyncLink() {
                 if (!this.data.currentSyncLink) return;
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(this.data.currentSyncLink).then(() => {
-                        this.showToast('链接已复制，快去发送吧');
-                    });
-                } else {
-                    const input = document.createElement('textarea');
-                    input.value = this.data.currentSyncLink;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    this.showToast('链接已复制');
-                }
+                this.copyText(this.data.currentSyncLink, '链接已复制，快去发送吧');
             },
 
             buildLink() {
@@ -3051,19 +3122,7 @@
 
             sharePageLink() {
                 const link = this.buildLink();
-                if (navigator.clipboard) {
-                    navigator.clipboard.writeText(link).then(() => {
-                        this.showToast('当前页链接已复制');
-                    });
-                } else {
-                    const input = document.createElement('textarea');
-                    input.value = link;
-                    document.body.appendChild(input);
-                    input.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(input);
-                    this.showToast('当前页链接已复制');
-                }
+                this.copyText(link, '当前页链接已复制');
             },
 
             exportData() {
