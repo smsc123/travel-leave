@@ -3524,7 +3524,6 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
         <div class="view" id="tripListView">
             <div class="section-subtitle">
                 <span>我的旅行</span>
-                <span class="add-link" onclick="app.openTripForm()">+ 新增旅行</span>
             </div>
 
             <!-- 模块内新增按钮 -->
@@ -4661,7 +4660,7 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 const trips = this.data.trips || [];
                 if (trips.length === 0) {
                     list.innerHTML = `<div class="empty-state" style="padding:30px 12px;">
-                        <div style="font-size:14px;color:var(--text-secondary);">还没有旅行记录，点右上角「+ 新增旅行」开始</div>
+                        <div style="font-size:14px;color:var(--text-secondary);">还没有旅行记录，点击上方「+ 新增旅行」开始</div>
                     </div>`;
                     return;
                 }
