@@ -203,6 +203,17 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
             background: rgba(238, 241, 246, 0.72);
             border-top-color: rgba(20, 20, 40, 0.06);
         }
+        html.theme-light .module-add-btn {
+            color: #1a1d27;
+            border-color: rgba(99, 102, 241, 0.30);
+            background: rgba(99, 102, 241, 0.06);
+        }
+        html.theme-light .module-add-btn svg { color: #6366f1; }
+        html.theme-light .module-add-btn.trip-add {
+            border-color: rgba(34, 211, 238, 0.30);
+            background: rgba(34, 211, 238, 0.06);
+        }
+        html.theme-light .module-add-btn.trip-add svg { color: #06b6d4; }
         html.theme-light .hub-profile-menu {
             background: rgba(238, 241, 246, 0.96);
             border-color: rgba(20, 20, 40, 0.08);
@@ -1699,6 +1710,52 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
         .nav-add:active {
             transform: translate(-50%, -6px) scale(0.92);
             box-shadow: 0 3px 12px rgba(17, 24, 39, 0.25);
+        }
+
+        /* ===== 模块内新增按钮（日历上方，替代底部导航栏的 + 按钮）===== */
+        .module-add-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 12px 20px;
+            margin: -8px 0 4px 0;
+            border-radius: 16px;
+            border: 1.5px solid rgba(99, 102, 241, 0.25);
+            background:
+                linear-gradient(135deg, rgba(99,102,241,0.10) 0%, rgba(139,92,255,0.08) 100%);
+            color: var(--text-primary, #e2e5eb);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
+        .module-add-btn svg { color: #8b9bff; }
+        .module-add-btn:hover {
+            background:
+                linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(139,92,255,0.14) 100%);
+            border-color: rgba(99, 102, 241, 0.40);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 22px rgba(99,102,241,0.15);
+        }
+        .module-add-btn:active {
+            transform: scale(0.97);
+        }
+        /* 旅行模块新增按钮（青色系） */
+        .module-add-btn.trip-add {
+            border-color: rgba(34, 211, 238, 0.25);
+            background:
+                linear-gradient(135deg, rgba(34,211,238,0.10) 0%, rgba(59,130,246,0.08) 100%);
+        }
+        .module-add-btn.trip-add svg { color: #7dd3fc; }
+        .module-add-btn.trip-add:hover {
+            background:
+                linear-gradient(135deg, rgba(34,211,238,0.18) 0%, rgba(59,130,246,0.14) 100%);
+            border-color: rgba(34, 211, 238, 0.40);
+            box-shadow: 0 6px 22px rgba(34,211,238,0.15);
         }
 
         /* ===== 弹窗/Sheet ===== */
@@ -3453,6 +3510,13 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 <div class="year-stats" id="yearStats">0 出差 · 0 请假</div>
             </div>
 
+            <!-- 模块内新增按钮 -->
+            <button class="module-add-btn" onclick="app.addCurrentRecord()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg> 新增记录
+            </button>
+
             <div class="months-grid" id="monthsGrid"></div>
         </div>
 
@@ -3462,6 +3526,14 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 <span>我的旅行</span>
                 <span class="add-link" onclick="app.openTripForm()">+ 新增旅行</span>
             </div>
+
+            <!-- 模块内新增按钮 -->
+            <button class="module-add-btn trip-add" onclick="app.openTripForm()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg> 新增旅行
+            </button>
+
             <div id="tripList"></div>
         </div>
 
@@ -4339,7 +4411,8 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 // 工具页常显返回箭头：回到中控启动页
                 document.getElementById('homeBackBtn').classList.remove('hidden');
                 document.querySelector('.header').classList.remove('hidden');
-                document.querySelector('.bottom-nav').classList.remove('hidden');
+                // 模块内隐藏底部导航（用日历上方的新增按钮替代）
+                document.querySelector('.bottom-nav').classList.add('hidden');
                 document.getElementById('pageTitle').textContent = '出差请假记录';
                 document.getElementById('pageSubtitle').textContent = 'Travel Records';
                 this.renderHome();
@@ -4356,7 +4429,8 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 document.getElementById('statView').classList.remove('active');
                 document.getElementById('homeBackBtn').classList.remove('hidden');
                 document.querySelector('.header').classList.remove('hidden');
-                document.querySelector('.bottom-nav').classList.remove('hidden');
+                // 模块内隐藏底部导航
+                document.querySelector('.bottom-nav').classList.add('hidden');
                 document.getElementById('pageTitle').textContent = '旅行出游';
                 document.getElementById('pageSubtitle').textContent = 'Travel Records';
                 this.renderTripList();
@@ -4389,7 +4463,8 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
             showModule(module) {
                 document.getElementById('launchView').classList.remove('active');
                 document.querySelector('.header').classList.remove('hidden');
-                document.querySelector('.bottom-nav').classList.remove('hidden');
+                // 模块内隐藏底部导航（用内嵌新增按钮替代）
+                document.querySelector('.bottom-nav').classList.add('hidden');
                 this.data.currentModule = module;
                 if (module === 'assistant') {
                     this.showAssistantView();
@@ -4422,6 +4497,8 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
                 document.getElementById('monthView').classList.add('active');
                 document.getElementById('statView').classList.remove('active');
                 document.getElementById('homeBackBtn').classList.remove('hidden');
+                // 模块内隐藏底部导航
+                document.querySelector('.bottom-nav').classList.add('hidden');
                 document.getElementById('pageTitle').textContent = `${year}年${month + 1}月`;
                 document.getElementById('pageSubtitle').textContent = '本月详情';
                 this.renderMonthDetail();
