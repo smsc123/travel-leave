@@ -3234,6 +3234,32 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
             .hub-panel {
                 box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
             }
+            /* 弹窗/菜单/表单：模糊关闭后必须用不透明实色替代 */
+            .hub-profile-menu,
+            .modal-sheet,
+            .modal-overlay,
+            .action-list,
+            .action-btn,
+            form.glass,
+            .filter-bar,
+            .filter-select,
+            .search-box,
+            .search-input {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+            .hub-profile-menu {
+                background: rgba(20, 22, 28, 0.96) !important;
+                border-color: rgba(255, 255, 255, 0.10) !important;
+            }
+            .modal-overlay { background: rgba(8, 9, 12, 0.65) !important; }
+            .modal-sheet { background: rgba(24, 26, 34, 0.97) !important; }
+            html.theme-light .hub-profile-menu {
+                background: rgba(248, 250, 253, 0.97) !important;
+                border-color: rgba(20, 20, 40, 0.08) !important;
+            }
+            html.theme-light .modal-overlay { background: rgba(0, 0, 0, 0.30) !important; }
+            html.theme-light .modal-sheet { background: rgba(255, 255, 255, 0.98) !important; }
             .hub-ov-item { transition: none !important; }
             .hub-content {
                 flex-direction: column;
