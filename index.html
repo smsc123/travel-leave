@@ -3144,6 +3144,35 @@ c.mode.CTRGladman=function(){var t=c.lib.BlockCipherMode.extend();function e(t){
             .hub-header { padding: 16px 20px; }
             .hub-header-title { font-size: 22px; }
             .hub-search { display: none; }
+
+            /* ===== 手机端：隐藏「全年概览」与「行程提醒」面板 ===== */
+            .hub-overview-panel,
+            .hub-upcoming-panel { display: none !important; }
+
+            /* ===== 手机端性能优化：关闭昂贵模糊/混合，恢复顺滑滚动 ===== */
+            /* 隐藏噪声纹理 + 页面级模糊光斑（最耗 GPU） */
+            .hub-layout::before,
+            .bg-orb { display: none !important; }
+            /* 取消毛玻璃模糊，改用半透明实色，避免滚动时每帧重采样背景 */
+            .hub-feature-card,
+            .hub-panel,
+            .glass,
+            .glass-strong,
+            .glass-card {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                transition: none !important;
+                will-change: auto !important;
+            }
+            .hub-feature-card {
+                background: rgba(18, 20, 28, 0.82) !important;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28) !important;
+            }
+            .hub-panel {
+                background: rgba(18, 20, 28, 0.78) !important;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
+            }
+            .hub-ov-item { transition: none !important; }
             .hub-content {
                 flex-direction: column;
                 gap: 16px;
